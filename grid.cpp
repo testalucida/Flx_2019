@@ -18,7 +18,7 @@ void Layout::add(GridInfo* pInfo) {
 
 void Layout::layout() {
     //do the layout row by row:
-    int x = 0;
+    int x = 0, y = 0;
     for(int r = 0, rmax = _grid.getRowCount(); r < rmax; r++) {
         x = 0;
         for(int c = 0, cmax = _grid.getColumnCount(); c < cmax; c++) {

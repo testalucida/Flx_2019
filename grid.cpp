@@ -18,7 +18,9 @@ void Layout::add(GridInfo* pInfo) {
 
 void Layout::layout() {
     //do the layout row by row:
+    int h = 0;
     for(int r = 0, rmax = _grid.getRowCount(); r < rmax; r++) {
+        h += _grid.getRowHeight(r);
         for(int c = 0, cmax = _grid.getColumnCount(); c < cmax; c++) {
             Cell cell = _grid.getCell(r, c);
             const GridInfo* pInfo = _grid.getGridInfo(r, c);
@@ -26,7 +28,10 @@ void Layout::layout() {
         }
     }
     
-    //_pGrp->size(x, _pGrp->h());
+    Cell mostRight = _grid.getCell(0, _grid.getColumnCount()-1);
+    int w = mostRight.x + mostRight.w;
+    
+    _pGrp->size(w, h);
 }
 
 void Layout::layoutWidget(Fl_Widget* pW, 
@@ -68,6 +73,8 @@ void Layout::layoutWidget(Fl_Widget* pW,
     } else {
         //center widget horizontally
     }
+    
+    pW->position(x, y);
     
 }
 
@@ -160,20 +167,19 @@ Cell Grid::getCell(int row, int col) const {
     //columns in the specified row
     //Furthermore, we get the cell's x position by adding 
     //all left sided columns' widths:
-    cell.h = 0;
+    cell.h = _columns[col]->getHeight(row);
     cell.x = 0;
-    for(auto* pCol : _columns) {
+    for(int c = 0; c < col; c++) { 
+        Column* pCol = _columns[c];
+        cell.x += pCol->getWidth();;
         int H = pCol->getHeight(row);
         cell.h = (H > cell.h) ? H : cell.h;
-        cell.x += pCol->getWidth();
     }
     
-    //To get cell.y we have to iterate over all GridInfos of an
-    //arbitrary column:
-    Column* pCol = _columns[0];
+    //To get cell.y we have to iterate over all rows:
     cell.y = 0;
-    for(int r = 0, rmax = pCol->getCount(); r < rmax; r++) {
-        cell.y += pCol->getHeight(r);
+    for(int r = 0; r < row; r++) {
+        cell.y += getRowHeight(r);
     }
     
     return cell;

@@ -17,6 +17,11 @@ class Fl_Group;
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 struct Padding {
+    // padding defines a minimum clearance to the respective cell border, 
+    // e.g.: e == 2 means a minimum distance of 2 pixels 
+    // to the right cell border.
+    // If however a small widget width is specified (maybe together 
+    // with sticky="w") the clearance might be greater.
     int n = 2; //north
     int e = 2;
     int s = 2;
@@ -35,7 +40,22 @@ public:
     int rowspan = 1;
     int columnspan = 1;
     Padding pad;
-    std::string sticky = "nswe"; //one of or combination of n, s, w, e
+    
+    /**
+     * sticky describes a widget's size and position within a cell.
+     * The widget's minimum clearance to the surrounding cell borders
+     * is determined by the 4 padding values (n, e, s, w).
+     * sticky prevails the widgets width attribute, e.g.:
+     * column width = 100, widget's width = 70, sticky = "we":
+     * the widget will be drawn with a width of 100 minus pad.w minus 
+     * pad.e
+     * So, if you want to keep your widget its width of 70 you
+     * have to specifiy *either* sticky = "w" or sticky = "e".
+     * Or you give up specifying a west or east value and your 
+     * widget will keep its width and will be drawn in the center of the
+     * cell.
+     */
+    std::string sticky = "nswe";
 };
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -45,10 +65,43 @@ public:
     Column(){}
     ~Column(){}
     
+    /**
+     * Adds a GridInfo object to this column.
+     * @param pointer to GridInfo - may be NULL
+     */
     void add(const GridInfo*);
-    const GridInfo* getGridInfo(int column) const {return _gridInfos.at(column);}
+    
+    /**
+     * Gets the GridInfo object of a given 'row' index
+     * @param row index of this column's element
+     * @return pointer to GridInfo
+     */
+    const GridInfo* getGridInfo(int row) const {return _gridInfos.at(row);}
+    
+    /**
+     * Gets width of column.
+     * The width is determined by the widget requiring the maximum widhth.
+     * It is calculated by adding pad.e, widget.w() and pad.e.
+     * @return width
+     */
     int getWidth() {return _w;}
-    int getCount() {return _gridInfos.size();}
+    
+    /**
+     * Gets the height of the row with the given row index.
+     * The height is determined by the widget requiring the maximum height.
+     * It is calculated by adding pad.n, widget.h() and pad.s.
+     * @param row row index
+     * @return height
+     */    
+    int getHeight(int row) const;
+    
+    /**
+     * Gets the number of stored widgets in this column, 
+     * i.e. the number of "rows"
+     * @return number of rows
+     */
+    int getCount() const {return _gridInfos.size();}
+    
 private:
     std::vector<const GridInfo*> _gridInfos;
     int _w = 0;
@@ -56,9 +109,12 @@ private:
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-
-//typedef std::vector<const GridInfo*> Column;
 typedef std::vector<Column*> Columns;
+
+struct Cell {
+    int x, y;
+    int w, h;
+};
 
 class Grid {
 public:
@@ -93,6 +149,17 @@ public:
     int getRowHeight(int row) const;
     
     /**
+     * Gets the cell specified by row/col.
+     * The cell's height is determined by the row's widget requiring
+     * maximum height by considering widget.h(), pad.n and pad.s
+     * @param row cell's row index
+     * @param col cell's column index
+     * @return Cell object at row/col
+     */
+    Cell getCell(int row, int col) const;
+    
+    
+    /**
      * Gets the number of columns contained in this grid.
      * @return number of columns
      */
@@ -112,6 +179,16 @@ public:
      * @return GridInfo* at position row/col
      */
     const GridInfo* getGridInfo(int row, int col);
+    
+    /**
+     * Gets the widget at the specified position
+     * @param row cell's row index
+     * @param col cell's column index
+     * @return pointer to Fl_Widget at row/col
+     */
+    Fl_Widget* getWidget(int row, int col);
+    
+    const Columns& getColumns() const {return _columns;}
     
 private:
     Columns _columns;
@@ -135,6 +212,15 @@ public:
      * @param Pointer to GridInfo to add
      */
     void add(GridInfo*);
+    
+    /**
+     * Sets size and position of the given Widget using
+     * the given GridInfo and cell infos.
+     * @param pW Fl_Widget to position
+     * @param info GridInfo containing padding and sticky
+     * @param cell Cell object containing needed information
+     */
+    void layoutWidget(Fl_Widget* pW, const GridInfo& info, const Cell& cell);
     
     /**
      * Retrieve layout of given group

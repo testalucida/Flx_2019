@@ -10,6 +10,7 @@
 
 #include <string>
 #include <vector>
+#include <memory>
 
 class Fl_Widget;
 class Fl_Group;
@@ -40,6 +41,23 @@ public:
     int rowspan = 1;
     int columnspan = 1;
     Padding pad;
+    /**
+     * Sets horizontal padding.
+     * If e is not given (or -1) it is ignored
+     * @param w left padding
+     * @param e right padding
+     */
+    void setPaddingHorizontal(int w, int e = -1);
+    
+    /**
+     * Sets vertical padding.
+     * If s is not given (or -1) it is ignored
+     * @param n upper padding
+     * @param s lower padding
+     */
+    void setPaddingVertical(int n, int s = -1);
+    
+    Padding& getPadding() {return pad;}
     
     /**
      * sticky describes a widget's size and position within a cell.
@@ -63,6 +81,7 @@ public:
 class Column {
 public:
     Column(){}
+    Column(int rows);
     ~Column(){}
     
     /**
@@ -70,6 +89,13 @@ public:
      * @param pointer to GridInfo - may be NULL
      */
     void add(const GridInfo*);
+    
+    /**
+     * Sets a GridInfo into the given cell 
+     * @param pInfo pointer to GridInfo to set
+     * @param row index of the cell
+     */
+    void setGridInfo(const GridInfo* pInfo, int row);
     
     /**
      * Gets the GridInfo object of a given 'row' index
@@ -84,7 +110,7 @@ public:
      * It is calculated by adding pad.e, widget.w() and pad.e.
      * @return width
      */
-    int getWidth() {return _w;}
+    int getWidth() const;
     
     /**
      * Gets the height of the row with the given row index.
@@ -104,7 +130,7 @@ public:
     
 private:
     std::vector<const GridInfo*> _gridInfos;
-    int _w = 0;
+    //int _w = 0;
 };
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -115,6 +141,8 @@ struct Cell {
     int x, y;
     int w, h;
 };
+
+typedef std::unique_ptr<Cell> CellPtr;
 
 class Grid {
 public:
@@ -158,6 +186,7 @@ public:
      */
     Cell getCell(int row, int col) const;
     
+    CellPtr getCellPtr(int row, int col) const;
     
     /**
      * Gets the number of columns contained in this grid.
@@ -189,6 +218,19 @@ public:
     Fl_Widget* getWidget(int row, int col);
     
     const Columns& getColumns() const {return _columns;}
+    
+private:
+    /**
+     * Adds nCols columns, each containing nRows rows to _columns
+     * @param n
+     */
+    void addColumns(int nCols, int nRows);
+    
+    /**
+     * Adds nRows cells to each column in _columns
+     * @param nRows
+     */
+    void addRows(int nRows);
     
 private:
     Columns _columns;
@@ -228,6 +270,9 @@ public:
      * @return found Layout or NULL
      */
     Fl_Group* getGroup() const {return _pGrp;}
+    
+    const Grid& getGrid() const {return _grid;}
+    
 private:
     Fl_Group* _pGrp;
     Grid _grid;

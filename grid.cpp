@@ -24,7 +24,9 @@ void Layout::layout() {
         for(int c = 0, cmax = _grid.getColumnCount(); c < cmax; c++) {
             Cell cell = _grid.getCell(r, c);
             const GridInfo* pInfo = _grid.getGridInfo(r, c);
-            layoutWidget(pInfo->pWidget, *pInfo, cell);
+            if(pInfo) {
+                layoutWidget(pInfo->pWidget, *pInfo, cell);
+            }
         }
     }
     
@@ -37,8 +39,6 @@ void Layout::layout() {
 void Layout::layoutWidget(Fl_Widget* pW, 
                           const GridInfo& info, const Cell& cell) 
 {
-    //to do: consider row and column span
-    
     bool stickyN = (info.sticky.find("n") != string::npos);
     bool stickyS = (info.sticky.find("s") != string::npos);
     bool stickyW = (info.sticky.find("w") != string::npos);
@@ -67,44 +67,63 @@ void Layout::layoutWidget(Fl_Widget* pW,
     
     int y = 0;
     if(stickyN) {
-        
+        y = cell.y + info.pad.n;
+        if(stickyS) {
+            //stretch widget north-south
+            int newH = pW->h() + dH;
+            pW->size(pW->w(), newH);
+        }
     } else if(stickyS) {
-        
+        y = dH;
     } else {
         //center widget horizontally
+        y = dH/2;
     }
     
     pW->position(x, y);
     
 }
 
-//void Layout::layout() {
-//    //do the layout row by row:
-//    int x
-//    
-//    for(int r = 0, rmax = _grid.getRowCount(); r < rmax; r++) {
-//        x = 0;
-//        for(int c = 0, cmax = _grid.getColumnCount(); c < cmax; c++) {
-//            const GridInfo* pInfo = _grid.getGridInfo(r, c);
-//            if(pInfo) {
-//                x += pInfo->pad.e;
-//                pInfo->pWidget->position(x, 0);
-//                x += pInfo->pWidget->w();
-//                x += pInfo->pad.w;
-//            }
-//        }
-//    }
-//    _pGrp->size(x, _pGrp->h());
-//}
-
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+void GridInfo::setPaddingHorizontal(int w, int e) {
+    pad.w = w;
+    if(e > -1) pad.e = e;
+}
+
+void GridInfo::setPaddingVertical(int n, int s) {
+    pad.n = n;
+    if(s > -1) pad.s = s;
+}
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Column::Column(int rows) {
+    for(int r = 0; r < rows; r++) {
+        _gridInfos.push_back((GridInfo*)NULL);
+    }
+}
 
 void Column::add(const GridInfo* pInfo) {
     _gridInfos.push_back(pInfo);
     if( pInfo ) {
-        int w = pInfo->pWidget->w() + pInfo->pad.e + pInfo->pad.w;
-        _w = (w > _w) ? w : _w;
+//        int w = pInfo->pWidget->w() + pInfo->pad.e + pInfo->pad.w;
+//        _w = (w > _w) ? w : _w;
     }
+}
+
+void Column::setGridInfo(const GridInfo* pInfo, int row) {
+    _gridInfos.at(row) = pInfo;
+}
+
+int Column::getWidth() const {
+    int w = 0;
+    for(auto* pInfo : _gridInfos) {
+        int W = pInfo ? 
+                pInfo->pWidget->w() + pInfo->pad.e + pInfo->pad.w :
+                0;
+        w = (W > w) ? W : w;
+    }
+    return w;
 }
 
 int Column::getHeight(int row) const {
@@ -115,22 +134,35 @@ int Column::getHeight(int row) const {
 }
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+void Grid::addColumns(int nCols, int nRows) {
+    for(int c = 0; c < nCols; c++) {
+        Column *pCol = new Column(nRows);
+        _columns.push_back(pCol);
+    }
+}
+
+void Grid::addRows(int nRows) {
+    for(auto* pCol : _columns) {
+        for(int r = 0; r < nRows; r++) {
+            pCol->add((GridInfo*)NULL);
+        }
+    }
+}
+
 void Grid::addGridInfo(const GridInfo* pInfo) {
-    int n = _columns.size();
-    while(n++ <= pInfo->column) {
-        //e.g.: if pInfo's column index == 3 and _columns' size == 1
-        //(column index == 0) then add 3 empty columns
-        _columns.push_back(new Column());
+    //add columns and rows as needed:
+    int nColsNeeded = pInfo->column - _columns.size() + 1;
+    int nRows = getRowCount();
+    int nRowsNeeded = pInfo->row - nRows + 1;
+    if(nColsNeeded > 0) {
+        addColumns(nColsNeeded, nRows);
     }
-    //add pInfo to the appropriate column (matching index):
+    if(nRowsNeeded > 0) {
+        addRows(nRowsNeeded);
+    }
+    
     Column* pCol = _columns.at(pInfo->column);
-    int nCells = pCol->getCount();
-    while(nCells++ < pInfo->row) {
-        //if pInfo's row index > pCol's size
-        //then add 'cells' until pCol's size == pInfo's row index + 1
-        pCol->add((GridInfo*)NULL);
-    }
-    pCol->add(pInfo);
+    pCol->setGridInfo(pInfo, pInfo->row);
 }
 
 int Grid::getColumnWidth(int col) const {
@@ -145,17 +177,7 @@ int Grid::getRowHeight(int row) const {
         int H = pColumn->getHeight(row);
         h = (H > h) ? H : h;
     }
-    
-//    for(auto it = _columns.begin(); it != _columns.end(); it++) {
-//        Column* pCol = *it;
-//        const GridInfo* pInfo = pCol->getGridInfo(row);
-//        if(pInfo) {
-//            int H = pInfo->pWidget->h() + pInfo->pad.n + pInfo->pad.s;
-//            h = (H > h) ? H : h;
-//        }
-//    }
-    
-    
+
     return h;
 }
 
@@ -163,6 +185,18 @@ Cell Grid::getCell(int row, int col) const {
     Cell cell;
     //The cell's width is determined by the referenced column's width:
     cell.w = _columns[col]->getWidth();
+    // check columnspan and extend cell.w if necessary:
+    const GridInfo* pInfo = _columns[0]->getGridInfo(row);
+    if(pInfo->columnspan > 1) {
+        //get width of next cell(s) to the right:
+        int colcnt = getColumnCount();
+        int cmax = col + pInfo->columnspan;
+        cmax = (cmax > colcnt) ? colcnt : cmax;
+        for(int c=col+1; c < cmax; c++) {
+            cell.w += _columns[c]->getWidth();
+        }
+    }
+    
     //The cell's height is determined by the maximum height of all 
     //columns in the specified row
     //Furthermore, we get the cell's x position by adding 
@@ -183,6 +217,12 @@ Cell Grid::getCell(int row, int col) const {
     }
     
     return cell;
+}
+
+CellPtr Grid::getCellPtr(int row, int col) const {
+    CellPtr p(new Cell());
+    CellPtr p2(nullptr);
+    return p2;
 }
 
 const GridInfo* Grid::getGridInfo(int row, int col) {

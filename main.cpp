@@ -16,6 +16,7 @@
 
 using namespace std;
 
+
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
@@ -25,7 +26,13 @@ int main (int argc, char ** argv) {
   
   Flx_Window* pWin = new Flx_Window(200, 200);
   Flx_Button* pBtn = new Flx_Button("button to click", 0, 0);
+  pBtn->setPaddingHorizontal(5);
+  
   pBtn = new Flx_Button("another button", 0, 1);
+  pBtn->setPaddingHorizontal(10, 5);
+  
+  pBtn = new Flx_Button("button in second row", 1, 0);
+  pBtn->setPaddingHorizontal(5);
   
   pWin->end();
   pWin->show (argc, argv);
